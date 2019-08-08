@@ -16,11 +16,9 @@ from database import DB
 from flask_pymongo import PyMongo
 app.config["MONGO_URI"] = DB.URI
 mongo = PyMongo(app)
-# mongo.init_app(app)
 
 # Import Documents / Routes:
-import documents
-# 
+ 
 jwt = JWT(app, authenticate, identity)
 
 
