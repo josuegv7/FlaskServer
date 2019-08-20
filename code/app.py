@@ -1,8 +1,9 @@
 from jsonEncoder import JSONEncoder
 from bson.json_util import dumps, loads
+from bson.objectid import ObjectId
 
-
-from flask import Flask, request
+from flask import Flask, request, jsonify
+from flask_cors import CORS
 from flask_restful import Resource, Api, reqparse
 from flask_jwt import JWT, jwt_required
 
@@ -10,6 +11,10 @@ from security import authenticate, identity
 app = Flask(__name__)
 app.secret_key = 'mykey'
 api = Api(app)
+
+# enable CORS
+CORS(app, resources={r'/*': {'origins': '*'}})
+
 
 # DB Connection:
 from database import DB
@@ -25,74 +30,97 @@ jwt = JWT(app, authenticate, identity)
 class Item(Resource):
     # Fields for item document:
     parser = reqparse.RequestParser()
+    print(parser)
+    parser.add_argument('name',
+                        type=str,
+                        # required=True,
+                        help="The Name Field cannot be left blank!"
+                        )
     parser.add_argument('price',
                         type=float,
-                        required=True,
+                        # required=True,
                         help="The Price Field cannot be left blank!"
                         )
     parser.add_argument('quantity',
-                        type=int,
-                        required=True,
+                        type=str,
+                        # required=True,
                         help="The Quantity Field cannot be left blank!"
                         )
     parser.add_argument('store',
                         type=str,
-                        required=True,
+                        # required=True,
                         help="The Store Field cannot be left blank!"
+                        )
+    parser.add_argument('_id',
+                        type=str
                         )
 # ROUTES FOR THE API:
     # @jwt_required()
 
-    def get(self, name):
-        # for item in items:
-        #     if item['name'] == name:
-        #         return item
-        # item = next(filter(lambda item: item['name']== name ,items), None)
-        # return {'Item' : item}, 200 if item else 404
-
-        item = mongo.db.items.find_one({'name': name})
-        return{'Item': JSONEncoder().encode(item)}, 200 if item != None else 404
-
-    def post(self, name):
-        # if next(filter(lambda item: item['name']  == name, items), None):
-        #     return {"4" : "An item with the name '{}' already exists.".format(name)}, 400
-
+    def get(self):
         data = Item.parser.parse_args()
         print(data)
-
         item = {
-            'name': name,
+            # 'name': data['name'],
+            # 'price': data['price'],
+            # 'quantity': data['quantity'],
+            # 'store': data['store'],
+            '_id': data['_id']
+        }
+        item_found = mongo.db.items.find_one(
+            # {"_id.$oid": data['_id']}
+            {'_id': ObjectId(data['_id'])}
+        )
+        print(item_found)
+        return JSONEncoder().encode(item_found), 200
+        
+     
+    def post(self):
+        data = Item.parser.parse_args()
+        item = {
+            'name': data['name'],
             'price': data['price'],
             'quantity': data['quantity'],
             'store': data['store']
         }
-
         mongo.db.items.find_one_and_update(
-            {'name': name}, {'$set': item}, upsert=True)
-        # items.append(item)
-        # print (item)
+            {'name': data['name']}, {'$set': item}, upsert=True
+        )
         return JSONEncoder().encode(item), 201
 
-    def delete(self, name):
-        item = {'name': name}
-        mongo.db.items.delete_one(item)
+    def delete(self):
+        data = Item.parser.parse_args()
+        print(data)
+        item = {
+            # 'name': data['name'],
+            # 'price': data['price'],
+            # 'quantity': data['quantity'],
+            # 'store': data['store'],
+            '_id': data['_id']
+        }
+        # print(item)
+        mongo.db.items.find_one_and_delete(
+            {'_id': ObjectId(data['_id'])}
+        )
         return {'Message': "Item Deleted"}, 200 if item != None else 404
 
-        # old code:
-        # global items
-        # items = list(filter(lambda x: x['name'] != name, items))
-        # return {'Message' : "Item Deleted"}
 
-        # Don't need this route b/c the insert is either updating a document or inserting a new one is the name is not found.
-        # def put(self, name):
-
-        #     data = Item.parser.parse_args()
-        #     item = next(filter(lambda x: x['name'] == name, items), None)
-        #     if item is None:
-        #         item = {'name': name, 'price': data['price']}
-        #     else:
-        #         item.update(data)
-        #     return item
+    def put(self):
+        data = Item.parser.parse_args()
+        print(data)
+        item = {
+            'name': data['name'],
+            'price': data['price'],
+            'quantity': data['quantity'],
+            'store': data['store'],
+            # '_id': data['_id']
+        }
+        print(item)
+        mongo.db.items.find_one_and_update(
+            {'_id': ObjectId(data['_id'])}, {'$set': item}
+        )
+        return JSONEncoder().encode(item), 200
+   
 
 
 class Project(Resource):
@@ -121,10 +149,7 @@ class Project(Resource):
         return{'Project': JSONEncoder().encode(project)}, 200 if project != None else 404
 
     def post(self, name):
-
         data = Project.parser.parse_args()
-        
-
         project = {
             'name': name,
             'items': data['items'],
@@ -133,7 +158,8 @@ class Project(Resource):
         }
 
         mongo.db.projects.find_one_and_update(
-        {'name': name}, {'$set': project}, upsert=True)
+        {'name': name}, {'$set': project}, upsert=True
+        )
         # items.append(item)
         # print (item)
         return JSONEncoder().encode(project), 201
@@ -147,8 +173,11 @@ class Project(Resource):
 class ItemList(Resource):
     def get(self):
         items = dumps(mongo.db.items.find())
-        return {'Items': items}, 200 if items != None else 404
+        
+        # return {'Items': items}, 200 if items != None else 404
+        # return ('pong!')
         # return items
+        return jsonify(items)
 
 
 class ProjectList(Resource):
@@ -159,15 +188,11 @@ class ProjectList(Resource):
 
 
 # Routes:
-api.add_resource(Item, '/item/<string:name>')
+api.add_resource(Item, '/item')
 api.add_resource(ItemList, '/items')
 
 api.add_resource(Project, '/project/<string:name>')
 api.add_resource(ProjectList, '/projects')
-
-
-
-
 
 
 
