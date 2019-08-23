@@ -126,21 +126,30 @@ class Item(Resource):
 class Project(Resource):
     # Fields for item document:
     parser = reqparse.RequestParser()
+    parser.add_argument('name',
+                        type=str,
+                        # required=True,
+                        help="The Name Field cannot be left blank!"
+                        )
     parser.add_argument('items',
                         type=str,
-                        required=True,
+                        # required=True,
                         help="The Items Field cannot be left blank!"
                         )
     parser.add_argument('project_date',
                         type=str,
-                        required=True,
+                        # required=True,
                         help="The Project Date Field cannot be left blank!"
                         )
     parser.add_argument('project_status',
                         type=str,
-                        required=True,
+                        # required=True,
                         help="The Project Status Field cannot be left blank!"
                         )
+    parser.add_argument('_id',
+                        type=str
+                        )
+                        
 
     # ROUTES FOR THE:
     # @jwt_required()
@@ -148,42 +157,83 @@ class Project(Resource):
         project = mongo.db.projects.find_one({'name': name})
         return{'Project': JSONEncoder().encode(project)}, 200 if project != None else 404
 
-    def post(self, name):
+
+    def get(self):
+        data = Project.parser.parse_args()
+        print(data)
+        project = {
+            # 'name': data['name'],
+            # 'price': data['price'],
+            # 'quantity': data['quantity'],
+            # 'store': data['store'],
+            '_id': data['_id']
+        }
+        project_found = mongo.db.projects.find_one(
+            # {"_id.$oid": data['_id']}
+            {'_id': ObjectId(data['_id'])}
+        )
+        print(project_found)
+        return JSONEncoder().encode(project_found), 200
+
+    def post(self):
         data = Project.parser.parse_args()
         project = {
-            'name': name,
+            'name': data['name'],
             'items': data['items'],
             'project_date': data['project_date'],
             'project_status': data['project_status']
         }
-
         mongo.db.projects.find_one_and_update(
-        {'name': name}, {'$set': project}, upsert=True
+            {'name': data['name']}, {'$set': project}, upsert=True
         )
-        # items.append(item)
-        # print (item)
         return JSONEncoder().encode(project), 201
 
-    def delete(self, name):
-        project = {'name': name}
-        mongo.db.projects.delete_one(project)
-        return {'Message': "Project was deleted"}, 200 if project != None else 404
+
+    def delete(self):
+        data = Project.parser.parse_args()
+        print("Delete")
+        print(data)
+        project = {
+            # 'name': data['name'],
+            # 'price': data['price'],
+            # 'quantity': data['quantity'],
+            # 'store': data['store'],
+            '_id': data['_id']
+        }
+        # print(item)
+        mongo.db.projects.find_one_and_delete(
+            {'_id': ObjectId(data['_id'])}
+        )
+        return {'Message': "Project Deleted"}, 200 if item != None else 404
+
+    def put(self):
+        data = Project.parser.parse_args()
+        print(data)
+        project = {
+            'name': data['name'],
+            'items': data['items'],
+            'project_date': data['project_date'],
+            'project_status': data['project_status'],
+            # '_id': data['_id']
+        }
+        print(project)
+        mongo.db.projects.find_one_and_update(
+            {'_id': ObjectId(data['_id'])}, {'$set': project}
+        )
+        return JSONEncoder().encode(project), 200
+
 
 
 class ItemList(Resource):
     def get(self):
         items = dumps(mongo.db.items.find())
-        
-        # return {'Items': items}, 200 if items != None else 404
-        # return ('pong!')
-        # return items
         return jsonify(items)
 
 
 class ProjectList(Resource):
     def get(self):
         projects = dumps(mongo.db.projects.find())
-        return {'Projects': projects}, 200 if projects != None else 404
+        return jsonify(projects)
 
 
 
@@ -191,7 +241,7 @@ class ProjectList(Resource):
 api.add_resource(Item, '/item')
 api.add_resource(ItemList, '/items')
 
-api.add_resource(Project, '/project/<string:name>')
+api.add_resource(Project, '/project')
 api.add_resource(ProjectList, '/projects')
 
 
